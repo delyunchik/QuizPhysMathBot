@@ -1,5 +1,6 @@
 import pylab
 
+
 def formula(formula_text, dpi=200):
     # formula = r'$x=3^2, y = \frac{1}{\frac{2}{3}}$'
     # formula = r'$1 - \cos^2\alpha$'
