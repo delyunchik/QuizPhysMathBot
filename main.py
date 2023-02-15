@@ -47,8 +47,9 @@ class Quiz:
         self.questions = []
 
 
-class UserInfo:
+class Voiter:
     full_name: str
+    last_answer_dt: datetime
     correct_answers: int = 0
 
     def __init__(self, full_name: str) -> None:
@@ -57,17 +58,18 @@ class UserInfo:
 
 # Класс Теста, экземпляра викторины, состоит из отдельных опросов
 class Test:
+    open_dt: datetime  # время начала теста
     close_dt: datetime  # время закрытия теста
     owner_fullname: str  # владелец теста (fullname)
     owner_username: str  # владелец теста (username)
     quiz_id: int  # ID теста из библиотеки тестов, quiz_id=0 встроенный
     poll_ids: list[int]  # идентификаторы poll_id
     chat_id: int  # id чата, в котором был запущен тест
-    users: dict[int, UserInfo]  # участники {username: UserInfo}
+    voiters: dict[str, Voiter]  # участники тестов {username: Voiter}
 
     def __init__(self) -> None:
         self.poll_ids = []
-        self.users = {}
+        self.voiters = {}
 
 
 # Класс опросов, входящих в тест
@@ -76,42 +78,43 @@ class Poll:
     test_id: int  # номер родительского теста данного пользователя
     correct_option_id: int  # номер правильного ответа
 
-    def __init__(self, user_id: int, test_id: int,
+    def __init__(self, owner_id: int, test_id: int,
                  correct_option_id: int) -> None:
-        self.user_id = user_id
+        self.owner_id = owner_id
         self.test_id = test_id
         self.correct_option_id = correct_option_id
 
 
-tests: dict[int, list[Test]] = {}  # экземпляры тестов, {user_id: Test[]}
+tests: dict[int, list[Test]] = {}  # экземпляры тестов, {owner_id: Test[]}
 polls: dict[int, Poll] = {}  # вопросы проведенных тестов, {poll_id: Poll}
 quizzes: list[Quiz] = [Quiz()]  # список викторин, 1z-индекс
 
 
-async def print_results(user_id: int, test_id: int, chat_id: int):
+async def print_results(owner_id: int, test_id: int, chat_id: int):
     # logging.debug('schedule userid={}'.format(userid))
-    if user_id not in tests:
+    if owner_id not in tests:
         txt = 'Вы еще не создали ни одного теста!'
     else:
-        if len(tests[user_id])-1 < test_id:
+        if len(tests[owner_id])-1 < test_id:
             txt = 'Вы еще не запускали тест номер ' + str(test_id)
         else:
-            users = tests[user_id][test_id].users
-            quiz_name = quizzes[tests[user_id][test_id].quiz_id].name
+            test = tests[owner_id][test_id]
+            voiters = test.voiters
+            quiz_name = quizzes[test.quiz_id].name
             txt = bold('Результаты теста "{}"\n'.format(quiz_name)) + \
                 'номер {} от {} @{}:\n'.format(
                     test_id,
-                    tests[user_id][test_id].owner_fullname,
-                    tests[user_id][test_id].owner_username)
-            if len(users) == 0:
+                    test.owner_fullname,
+                    test.owner_username)
+            if len(voiters) == 0:
                 txt += 'Никто не ответил ни на один вопрос теста!'
             else:
-                num_polls = len(tests[user_id][test_id].poll_ids)
-                for user in users:
+                num_polls = len(test.poll_ids)
+                for username in voiters:
                     txt += '{} @{} {}/{}'.format(
-                        users[user].full_name,
-                        user,
-                        users[user].correct_answers,
+                        voiters[username].full_name,
+                        username,
+                        voiters[username].correct_answers,
                         num_polls
                     )
     await bot.send_message(
@@ -148,9 +151,9 @@ async def start_test(quiz_id: int, chat_id: int, owner_id: int, owner: User):
             chat_id=chat_id,
             text='В каталоге отсутствует викторина номер {}'.format(quiz_id))
     else:
-        close_dt = datetime.now() + timedelta(seconds=quizzes[quiz_id].time)
         test = Test()
-        test.close_dt = close_dt
+        test.open_dt = datetime.now()
+        test.close_dt = test.open_dt + timedelta(minutes=quizzes[quiz_id].time)
         test.quiz_id = quiz_id
         test.chat_id = chat_id
         test.owner_fullname = owner.full_name
@@ -165,7 +168,7 @@ async def start_test(quiz_id: int, chat_id: int, owner_id: int, owner: User):
                 bold('Тест "' + quizzes[quiz_id].name + '"'),
                 'Номер теста: {}'.format(test_id),
                 'Время окончания теста: {}'.format(
-                    close_dt.strftime('%X')),
+                    test.close_dt.strftime('%X')),
                 sep='\n'
             ),
             parse_mode=ParseMode.MARKDOWN,
@@ -192,7 +195,7 @@ async def start_test(quiz_id: int, chat_id: int, owner_id: int, owner: User):
                 options=[str(j+1) for j in range(q.len)],
                 is_anonymous=False,
                 type='quiz',
-                close_date=close_dt,
+                close_date=test.close_dt,
                 protect_content=True,
                 correct_option_id=q.correct_option_id,
             )
@@ -201,11 +204,11 @@ async def start_test(quiz_id: int, chat_id: int, owner_id: int, owner: User):
             tests[owner_id][test_id].poll_ids.append(msg.poll.id)
             logging.info('i=%d msg=%s', i, msg.as_json())
         # заведем таймер на окончание теста для вывода результатов
-        results_dt = close_dt + timedelta(minutes=1)
+        results_dt = test.close_dt + timedelta(minutes=1)
         tm = results_dt.strftime('%H:%M')
         aioschedule.every().day.at(tm).do(
             print_results,
-            user_id=owner_id,
+            owner_id=owner_id,
             test_id=test_id,
             chat_id=chat_id)
 
@@ -221,13 +224,14 @@ async def handle_poll_answer(quiz_answer: types.PollAnswer):
     logging.info(quiz_answer.as_json())
     username = quiz_answer.user.username
     poll_id = quiz_answer.poll_id
-    user_id = polls[poll_id].user_id
+    owner_id = polls[poll_id].owner_id
     test_id = polls[poll_id].test_id
-    users = tests[user_id][test_id].users
-    if username not in users:  # пользователь еще не участвовал в этом тесте
-        users[username] = UserInfo(quiz_answer.user.full_name)
+    voiters = tests[owner_id][test_id].voiters
+    if username not in voiters:  # пользователь еще не участвовал в этом тесте
+        voiters[username] = Voiter(quiz_answer.user.full_name)
+    voiters[username].last_answer_dt = datetime.now()
     if quiz_answer.option_ids[0] == polls[poll_id].correct_option_id:
-        users[username].correct_answers += 1
+        voiters[username].correct_answers += 1
 
 
 # обработчик команды results
@@ -236,8 +240,8 @@ async def command_quiz(message: types.Message):
     logging.info('RESULTS command msg=%s', message.as_json())
     if ' ' in message.text:  # с параметром запуска теста
         test_id = int(message.text.split()[1])  # номер теста параметром
-        user_id = message.from_id
-        await print_results(user_id, test_id, message.chat.id)
+        owner_id = message.from_id
+        await print_results(owner_id, test_id, message.chat.id)
     else:
         # ответим приветственным сообщением
         await message.reply('Используйте /results <номер_теста>, '

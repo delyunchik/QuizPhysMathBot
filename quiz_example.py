@@ -19,11 +19,4 @@ quiz_trigo_example = [
     r'2) $-\sin^2\alpha$''\n'
     r'3) $2\cos^2\alpha$''\n'
     r'4) $\cos\alpha$',
-
-    # Вопрос 3
-    'Тестовый вопрос',
-    r'$\sqrt{2}^2$',
-    '2',  # правильный ответ 0z-index
-    r'1) $\sqrt{2^2}$''\n'
-    r'2) $\sin^2\alpha$',
 ]
