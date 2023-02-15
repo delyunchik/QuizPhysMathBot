@@ -1,6 +1,7 @@
 import logging
 import asyncio
 from datetime import datetime, timedelta
+import random
 import aioschedule
 import config
 from emoji import emojize
@@ -49,7 +50,7 @@ class Quiz:
 
 class Voiter:
     full_name: str
-    last_answer_dt: datetime
+    time_spent: timedelta  # затраченное время с начала теста
     correct_answers: int = 0
 
     def __init__(self, full_name: str) -> None:
@@ -89,6 +90,22 @@ tests: dict[int, list[Test]] = {}  # экземпляры тестов, {owner_i
 polls: dict[int, Poll] = {}  # вопросы проведенных тестов, {poll_id: Poll}
 quizzes: list[Quiz] = [Quiz()]  # список викторин, 1z-индекс
 
+FIRST_PRIZE = ':1st_place_medal::trophy:'
+SECOND_PRIZE = ':2nd_place_medal::crown:'
+THIRD_PRIZE = ':3rd_place_medal::wrapped_gift:'
+RANDOM_PRIZES = [
+    ':airplane:',
+    ':avocado:',
+    ':bagel:',
+    ':balloon:',
+    ':basketball:',
+    ':birthday_cake:',
+    ':bouquet:',
+    ':coin:',
+    ':confetti_ball:',
+    ':money_bag:',
+]
+
 
 async def print_results(owner_id: int, test_id: int, chat_id: int):
     # logging.debug('schedule userid={}'.format(userid))
@@ -101,22 +118,42 @@ async def print_results(owner_id: int, test_id: int, chat_id: int):
             test = tests[owner_id][test_id]
             voiters = test.voiters
             quiz_name = quizzes[test.quiz_id].name
-            txt = bold('Результаты теста "{}"\n'.format(quiz_name)) + \
-                'номер {} от {} @{}:\n'.format(
-                    test_id,
-                    test.owner_fullname,
-                    test.owner_username)
+            txt = bold('Результаты теста номер {} "{}":\n'.format(
+                       test_id, quiz_name))
             if len(voiters) == 0:
                 txt += 'Никто не ответил ни на один вопрос теста!'
             else:
                 num_polls = len(test.poll_ids)
-                for username in voiters:
-                    txt += '{} @{} {}/{}'.format(
-                        voiters[username].full_name,
-                        username,
-                        voiters[username].correct_answers,
-                        num_polls
-                    )
+                random.shuffle(RANDOM_PRIZES)
+                place = 1
+                for voiter in \
+                        sorted(voiters.items(),
+                               key=lambda item: (9999-item[1].correct_answers,
+                                                 item[1].time_spent),
+                               reverse=True):
+                    for _ in range(20):
+                        if place == 1:
+                            prize = emojize(FIRST_PRIZE)
+                        elif place == 2:
+                            prize = emojize(SECOND_PRIZE)
+                        elif place == 3:
+                            prize = emojize(THIRD_PRIZE)
+                        elif place >= 4 and place <= 10:
+                            prize = emojize(':keycap_{}:{}'.format(
+                                place, RANDOM_PRIZES[place-4]))
+                        else:
+                            prize = ''
+                            for c in str(place):
+                                prize += emojize(':keycap_{}:'.format(int(c)))
+                        place += 1
+                        txt += '{} {} @{} {} из {} ' \
+                            'правильных ответов за {:.2f} с\n'.format(
+                                    prize,
+                                    voiter[1].full_name,
+                                    voiter[0],
+                                    voiter[1].correct_answers,
+                                    num_polls,
+                                    voiter[1].time_spent.total_seconds())
     await bot.send_message(
         chat_id=chat_id,
         text=txt,
@@ -226,10 +263,11 @@ async def handle_poll_answer(quiz_answer: types.PollAnswer):
     poll_id = quiz_answer.poll_id
     owner_id = polls[poll_id].owner_id
     test_id = polls[poll_id].test_id
-    voiters = tests[owner_id][test_id].voiters
+    test = tests[owner_id][test_id]
+    voiters = test.voiters
     if username not in voiters:  # пользователь еще не участвовал в этом тесте
         voiters[username] = Voiter(quiz_answer.user.full_name)
-    voiters[username].last_answer_dt = datetime.now()
+    voiters[username].time_spent = datetime.now() - test.open_dt
     if quiz_answer.option_ids[0] == polls[poll_id].correct_option_id:
         voiters[username].correct_answers += 1
 

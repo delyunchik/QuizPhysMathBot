@@ -2,3 +2,4 @@ aiogram
 aioschedule
 emoji
 matplotlib
+random
