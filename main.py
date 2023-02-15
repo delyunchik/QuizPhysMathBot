@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import random
 import aioschedule
 import config
+import copy  # temp
 from emoji import emojize
 from formula import formula
 import quiz_example
@@ -49,12 +50,17 @@ class Quiz:
 
 
 class Voiter:
-    full_name: str
+    fullname: str
+    username: str
     time_spent: timedelta  # затраченное время с начала теста
     correct_answers: int = 0
 
-    def __init__(self, full_name: str) -> None:
-        self.full_name = full_name
+    def __init__(self, username: str, fullname: str) -> None:
+        if username:
+            self.username = '@' + username
+        else:
+            self.username = ''
+        self.fullname = fullname or ''
 
 
 # Класс Теста, экземпляра викторины, состоит из отдельных опросов
@@ -66,7 +72,7 @@ class Test:
     quiz_id: int  # ID теста из библиотеки тестов, quiz_id=0 встроенный
     poll_ids: list[int]  # идентификаторы poll_id
     chat_id: int  # id чата, в котором был запущен тест
-    voiters: dict[str, Voiter]  # участники тестов {username: Voiter}
+    voiters: dict[str, Voiter]  # участники тестов {user_id: Voiter}
 
     def __init__(self) -> None:
         self.poll_ids = []
@@ -129,31 +135,29 @@ async def print_results(owner_id: int, test_id: int, chat_id: int):
                 for voiter in \
                         sorted(voiters.items(),
                                key=lambda item: (9999-item[1].correct_answers,
-                                                 item[1].time_spent),
-                               reverse=True):
-                    for _ in range(20):
-                        if place == 1:
-                            prize = emojize(FIRST_PRIZE)
-                        elif place == 2:
-                            prize = emojize(SECOND_PRIZE)
-                        elif place == 3:
-                            prize = emojize(THIRD_PRIZE)
-                        elif place >= 4 and place <= 10:
-                            prize = emojize(':keycap_{}:{}'.format(
-                                place, RANDOM_PRIZES[place-4]))
-                        else:
-                            prize = ''
-                            for c in str(place):
-                                prize += emojize(':keycap_{}:'.format(int(c)))
-                        place += 1
-                        txt += '{} {} @{} {} из {} ' \
-                            'правильных ответов за {:.2f} с\n'.format(
-                                    prize,
-                                    voiter[1].full_name,
-                                    voiter[0],
-                                    voiter[1].correct_answers,
-                                    num_polls,
-                                    voiter[1].time_spent.total_seconds())
+                                                 item[1].time_spent)):
+                    if place == 1:
+                        prize = emojize(FIRST_PRIZE)
+                    elif place == 2:
+                        prize = emojize(SECOND_PRIZE)
+                    elif place == 3:
+                        prize = emojize(THIRD_PRIZE)
+                    elif place >= 4 and place <= 10:
+                        prize = emojize(':keycap_{}:{}'.format(
+                            place, RANDOM_PRIZES[place-4]))
+                    else:
+                        prize = ''
+                        for c in str(place):
+                            prize += emojize(':keycap_{}:'.format(int(c)))
+                    place += 1
+                    txt += '{} {} {} {} из {} ' \
+                        'правильных ответов за {:.2f} с\n'.format(
+                                prize,
+                                voiter[1].fullname,
+                                voiter[1].username,
+                                voiter[1].correct_answers,
+                                num_polls,
+                                voiter[1].time_spent.total_seconds())
     await bot.send_message(
         chat_id=chat_id,
         text=txt,
@@ -259,17 +263,27 @@ async def handle_poll_answer(quiz_answer: types.PollAnswer):
     :param quiz_answer: объект PollAnswer с информацией о голосующем
     """
     logging.info(quiz_answer.as_json())
-    username = quiz_answer.user.username
+    user_id = quiz_answer.user.id
     poll_id = quiz_answer.poll_id
     owner_id = polls[poll_id].owner_id
     test_id = polls[poll_id].test_id
     test = tests[owner_id][test_id]
     voiters = test.voiters
-    if username not in voiters:  # пользователь еще не участвовал в этом тесте
-        voiters[username] = Voiter(quiz_answer.user.full_name)
-    voiters[username].time_spent = datetime.now() - test.open_dt
+    if user_id not in voiters:  # пользователь еще не участвовал в этом тесте
+        voiters[user_id] = Voiter(quiz_answer.user.username,
+                                  quiz_answer.user.full_name)
+    voiters[user_id].time_spent = datetime.now() - test.open_dt
     if quiz_answer.option_ids[0] == polls[poll_id].correct_option_id:
-        voiters[username].correct_answers += 1
+        voiters[user_id].correct_answers += 1
+
+    # temp for debug
+    for i in range(19):
+        v2 = copy.deepcopy(voiters[user_id])
+        u2 = str(i)
+        v2.correct_answers = random.randint(0, len(test.poll_ids))
+        v2.time_spent = timedelta(seconds=random.random() *
+                                  60 * quizzes[test.quiz_id].time)
+        voiters[u2] = v2
 
 
 # обработчик команды results
