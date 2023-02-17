@@ -1,7 +1,7 @@
 import pylab
 
-# formula = r'$x=3^2, y = \frac{1}{\frac{2}{3}}$'
-formula = r'$1 - \cos^2\alpha$'
+formula = r'$x=3^2, y = \frac{1}{\frac{2}{3}}$'
+# formula = r'$1 - \cos^2\alpha$'
 
 fig = pylab.figure()
 text = fig.text(0, 0, formula)
