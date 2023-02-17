@@ -31,7 +31,7 @@ quiz_trigo_full = [
 
     # Вопрос 4
     'Упростите выражение',
-    r'$\cos^2\alpha - (1 - 2\sin^2\alpha$',
+    r'$\cos^2\alpha - (1 - 2\sin^2\alpha)$',
     '1',  # номер правильного ответа
     r'1) $\sin^2\alpha$''\n'
     r'2) $\cos^2\alpha$''\n'
@@ -88,7 +88,7 @@ quiz_trigo_full = [
     r'$\frac{\sin\alpha}{\tan\alpha}$',
     '1',  # номер правильного ответа
     r'1) $-\cos\alpha$''\n'
-    r'2) $\sin^2\alpha  \cos\alpha$''\n'
+    r'2) $\sin^2\alpha \bullet \cos\alpha$''\n'
     r'3) $\sin\alpha$''\n'
     r'4) $\cos\alpha$',
 
