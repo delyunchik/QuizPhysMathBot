@@ -8,7 +8,7 @@ import copy  # temp
 from emoji import emojize
 from formula import formula
 import quiz_trigo_full
-from aiogram import Bot, types
+from aiogram import Bot, types, exceptions
 from aiogram.dispatcher import Dispatcher
 from aiogram.utils import executor
 from aiogram.utils.markdown import text, bold, italic, code
@@ -185,6 +185,14 @@ async def parse_quiz(quiz_src: list[str]):
     quizzes.append(qz)
 
 
+@dp.errors_handler(exception=exceptions.RetryAfter)
+async def exception_handler(update: types.Update,
+                            exception: exceptions.RetryAfter):
+    logging.info('Exception Retry After %d', exception.timeout)
+    # Do something
+    return True
+
+
 async def start_test(quiz_id: int, chat_id: int, owner_id: int, owner: User):
     logging.info('Starting test with quiz_id=%d', quiz_id)
     if len(quizzes)-1 < quiz_id:
@@ -214,6 +222,7 @@ async def start_test(quiz_id: int, chat_id: int, owner_id: int, owner: User):
             ),
             parse_mode=ParseMode.MARKDOWN,
             chat_id=chat_id,
+            protect_content=True,
         )
         # отправим вопросы
         for i in range(quizzes[quiz_id].len):
@@ -221,14 +230,17 @@ async def start_test(quiz_id: int, chat_id: int, owner_id: int, owner: User):
             msg = await bot.send_message(
                 chat_id=chat_id,
                 text=r'[{}/{}] {}'.format(i+1, quizzes[quiz_id].len, q.text),
+                protect_content=True,
             )
             msg = await bot.send_photo(
                 chat_id=chat_id,
                 photo=formula(q.formula),
+                protect_content=True,
             )
             msg = await bot.send_photo(
                 chat_id=chat_id,
                 photo=formula(q.options),
+                protect_content=True,
             )
             msg = await bot.send_poll(
                 chat_id=chat_id,
@@ -244,6 +256,7 @@ async def start_test(quiz_id: int, chat_id: int, owner_id: int, owner: User):
                                       msg.poll.correct_option_id)
             tests[owner_id][test_id].poll_ids.append(msg.poll.id)
             logging.info('i=%d msg=%s', i, msg.as_json())
+            await asyncio.sleep(15)
         # заведем таймер на окончание теста для вывода результатов
         results_dt = test.close_dt + timedelta(minutes=1)
         tm = results_dt.strftime('%H:%M')
@@ -276,14 +289,14 @@ async def handle_poll_answer(quiz_answer: types.PollAnswer):
     if quiz_answer.option_ids[0] == polls[poll_id].correct_option_id:
         voiters[user_id].correct_answers += 1
 
-    # temp for debug
-    for i in range(19):
-        v2 = copy.deepcopy(voiters[user_id])
-        u2 = str(i)
-        v2.correct_answers = random.randint(0, len(test.poll_ids))
-        v2.time_spent = timedelta(seconds=random.random() *
-                                  60 * quizzes[test.quiz_id].time)
-        voiters[u2] = v2
+    # # temp for debug
+    # for i in range(19):
+    #     v2 = copy.deepcopy(voiters[user_id])
+    #     u2 = str(i)
+    #     v2.correct_answers = random.randint(0, len(test.poll_ids))
+    #     v2.time_spent = timedelta(seconds=random.random() *
+    #                               60 * quizzes[test.quiz_id].time)
+    #     voiters[u2] = v2
 
 
 # обработчик команды results
@@ -334,14 +347,14 @@ async def command_help(message: types.Message):
 @dp.message_handler(content_types=types.ContentType.ANY)
 async def unknown_message(message: types.Message):
     logging.info('Unknown command msg=%s', message.as_json())
-    # дежурный текст
-    message_text = text(
-        emojize('К сожалению, я не знаю, что с этим делать :astonished_face:'),
-        italic('\nПросто напомню,'), 'что есть',
-        code('команда'), '/help'
-    )
-    # отправим его пользователю
-    await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
+    # # дежурный текст
+    # message_text = text(
+    #     emojize('К сожалению, я не знаю, что с этим делать :astonished_face:'),
+    #     italic('\nПросто напомню,'), 'что есть',
+    #     code('команда'), '/help'
+    # )
+    # # отправим его пользователю
+    # await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
 
 
 # Обработчик заданий по расписанию
