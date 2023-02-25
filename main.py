@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import random
 import aioschedule
 import config
-import copy  # temp
+# import copy  # debug
 from emoji import emojize
 from formula import formula
 import quiz_trigo_full
@@ -16,7 +16,7 @@ from aiogram.types import ReplyKeyboardRemove, ParseMode, User
 
 # Настраиваем журналирование
 logging.basicConfig(
-    # filename='TrigoTgBot.log',
+    filename='TrigoTgBot.log',
     level=config.LOG_LEVEL,
     format='%(asctime)s [%(levelname)s] ' +
            '%(module)s - %(funcName)s: %(message)s',
@@ -384,4 +384,4 @@ if __name__ == '__main__':
     executor.start_polling(
         dp, on_startup=startup,
         on_shutdown=shutdown,
-        skip_updates=True)  # пропускать сообщения при остановленном
+        skip_updates=False)  # не пропускать сообщения при остановленном
