@@ -340,14 +340,6 @@ async def command_help(message: types.Message):
 @dp.message_handler(content_types=types.ContentType.ANY)
 async def unknown_message(message: types.Message):
     logging.info('Unknown command msg=%s', message.as_json())
-    # # дежурный текст
-    # message_text = text(
-    #     emojize('К сожалению, я не знаю, что с этим делать :astonished_face:'),
-    #     italic('\nПросто напомню,'), 'что есть',
-    #     code('команда'), '/help'
-    # )
-    # # отправим его пользователю
-    # await message.reply(message_text, parse_mode=ParseMode.MARKDOWN)
 
 
 # Обработчик заданий по расписанию
