@@ -227,19 +227,12 @@ async def start_test(quiz_id: int, chat_id: int, owner_id: int, owner: User):
         # отправим вопросы
         for i in range(quizzes[quiz_id].len):
             q = quizzes[quiz_id].questions[i]
-            msg = await bot.send_message(
-                chat_id=chat_id,
-                text=r'[{}/{}] {}'.format(i+1, quizzes[quiz_id].len, q.text),
-                protect_content=True,
-            )
             msg = await bot.send_photo(
                 chat_id=chat_id,
-                photo=formula(q.formula),
-                protect_content=True,
-            )
-            msg = await bot.send_photo(
-                chat_id=chat_id,
-                photo=formula(q.options),
+                photo=formula(
+                    r'[{}/{}] {}'.format(i+1, quizzes[quiz_id].len, q.text) +
+                    '\n\n' + q.formula+'\n\n' +
+                    q.options),
                 protect_content=True,
             )
             msg = await bot.send_poll(
@@ -256,7 +249,7 @@ async def start_test(quiz_id: int, chat_id: int, owner_id: int, owner: User):
                                       msg.poll.correct_option_id)
             tests[owner_id][test_id].poll_ids.append(msg.poll.id)
             logging.info('i=%d msg=%s', i, msg.as_json())
-            await asyncio.sleep(15)
+            await asyncio.sleep(10)
         # заведем таймер на окончание теста для вывода результатов
         results_dt = test.close_dt + timedelta(minutes=1)
         tm = results_dt.strftime('%H:%M')
