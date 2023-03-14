@@ -8,6 +8,7 @@ import config
 from emoji import emojize
 from formula import formula
 import quiz_trigo_full
+import quiz_demo_short
 from aiogram import Bot, types, exceptions
 from aiogram.dispatcher import Dispatcher
 from aiogram.utils import executor
@@ -354,6 +355,8 @@ async def scheduler():
 async def startup(_):
     logging.info('Старт работы бота!')
     # загрузим демо викторину
+    await parse_quiz(quiz_demo_short.quiz_demo_short)
+    # загрузим полный тест
     await parse_quiz(quiz_trigo_full.quiz_trigo_full)
     asyncio.create_task(scheduler())
 
